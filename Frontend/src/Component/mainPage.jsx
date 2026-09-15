@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import {
   ArrowRight,
   Banknote,
@@ -5,7 +6,6 @@ import {
   Check,
   Clock,
   FileCheck2,
-  FileText,
   HelpCircle,
   ListChecks,
   MessagesSquare,
@@ -16,13 +16,7 @@ import {
   TriangleAlert,
   Upload,
 } from "lucide-react"
-import ProfileMenu from "./profileMenu"
-
-const NAV_LINKS = [
-  { label: "How it works", href: "#how-it-works" },
-  { label: "What we check", href: "#what-we-check" },
-  { label: "Privacy", href: "#privacy" },
-]
+import AppHeader from "./appHeader"
 
 const TRUST_POINTS = [
   { icon: ScanLine, label: "38-point checklist" },
@@ -154,34 +148,7 @@ const MainPage = () => (
   // page's own height (~820px) plus margin — below it the page scrolls normally,
   // because clipping the steps out of reach is worse than a scrollbar.
   <div className="flex min-h-screen flex-col bg-[#f5f4f0c1] [@media(min-height:860px)]:h-screen [@media(min-height:860px)]:overflow-hidden">
-    {/* ---------------- Navbar ---------------- */}
-    <header className="shrink-0 border-b border-[#e4e1d9] bg-[#ffffff]">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-3 lg:px-10">
-        <a href="#top" className="flex shrink-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0c6b4e]">
-            <FileText className="h-5 w-5 text-[#ffffff]" strokeWidth={2.2} />
-          </span>
-          <span className="text-base font-semibold tracking-tight text-[#131a16]">
-            TrueOffer.AI
-          </span>
-        </a>
-
-        <ul className="hidden items-center gap-8 lg:flex">
-          {NAV_LINKS.map(({ label, href }) => (
-            <li key={label}>
-              <a
-                href={href}
-                className="text-sm text-[#131a16] opacity-70 transition-opacity hover:opacity-100"
-              >
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
-
-        <ProfileMenu />
-      </nav>
-    </header>
+    <AppHeader />
 
     {/* ---------------- Hero + how it works, one screen ---------------- */}
     <main
@@ -205,12 +172,12 @@ const MainPage = () => (
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-6">
-            <button
-              type="button"
+            <Link
+              to="/upload"
               className="rounded-lg bg-[#0c6b4e] px-7 py-3 text-sm font-semibold text-[#ffffff] transition-opacity hover:opacity-90"
             >
               Check My Offer
-            </button>
+            </Link>
             <a
               href="#how-it-works"
               className="text-sm font-medium text-[#131a16] underline underline-offset-4 transition-opacity hover:opacity-70"

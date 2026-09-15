@@ -2,6 +2,7 @@ import {BrowserRouter, Routes, Route, Navigate} from "react-router-dom"
 import LoginPage from "./Component/loginPage"
 import CreateAccountPage from "./Component/createAccountPage"
 import MainPage from "./Component/mainPage"
+import UploadPage from "./Component/uploadPage"
 import AuthCallback from "./Component/authCallback"
 import ForgotPasswordPage from "./Component/forgotPasswordPage"
 import ResetPasswordPage from "./Component/resetPasswordPage"
@@ -33,6 +34,7 @@ const App = () => {
         {/* Signed-in only — no session means back to the login screen. */}
         <Route element={<ProtectedRoute/>}>
           <Route path="/main" element={<MainPage/>}/>
+          <Route path="/upload" element={<UploadPage/>}/>
         </Route>
 
         {/* Where the social provider sends the browser back to. Ungated: it is what
