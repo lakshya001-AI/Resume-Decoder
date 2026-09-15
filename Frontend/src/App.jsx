@@ -2,6 +2,10 @@ import { FileText, Server, Sparkles, UploadCloud } from 'lucide-react'
 import { useState } from 'react'
 import axios from "axios"
 
+// Empty in dev, so calls stay relative and go through the Vite proxy. In a
+// deployed build this is the backend's own origin, baked in at build time.
+const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '' })
+
 const App = () => {
   const [reply, setReply] = useState(null)
   const [error, setError] = useState(null)
@@ -12,7 +16,7 @@ const App = () => {
     setError(null)
     setReply(null)
     try {
-      const res = await axios.get('/api/welcome')
+      const res = await api.get('/api/welcome')
       setReply(res.data.message)
     } catch (err) {
       setError(err.message)
