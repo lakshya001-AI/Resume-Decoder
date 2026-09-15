@@ -1,6 +1,11 @@
-import { Link } from "react-router-dom"
-import { Check, Mail, Lock, Eye, FileText } from "lucide-react"
-import { GoogleIcon, LinkedinIcon } from "../utils/icons"
+import { useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Check, Eye, EyeOff, FileText, Loader2, Lock, Mail } from "lucide-react"
+import { GoogleIcon } from "../utils/icons"
+import { useAuth } from "../context/useAuth"
+import { useToast } from "../context/useToast"
+import { useSocialProviders } from "../hooks/useSocialProviders"
+import { errorMessage, startSocialLogin } from "../lib/api"
 
 const FEATURES = [
   "CTC breakdown — fixed vs variable, in-hand estimate",
@@ -8,7 +13,72 @@ const FEATURES = [
   "Instant red-flag & green-flag risk score",
 ]
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const LoginPage = () => {
+  const { login } = useAuth()
+  const toast = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const providers = useSocialProviders()
+
+  const [form, setForm] = useState({ email: "", password: "" })
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  // Set once a social button is clicked — the browser is leaving the page, so
+  // the button stays in its loading state until it does.
+  const [leavingFor, setLeavingFor] = useState(null)
+
+  const busy = submitting || leavingFor !== null
+
+  const updateField = (name) => (event) => {
+    setForm((previous) => ({ ...previous, [name]: event.target.value }))
+    // Clear the complaint as soon as the user starts fixing it.
+    setFieldErrors((previous) => ({ ...previous, [name]: undefined }))
+  }
+
+  const validate = () => {
+    const errors = {}
+    if (!form.email.trim()) errors.email = "Enter your email address."
+    else if (!EMAIL_PATTERN.test(form.email.trim())) errors.email = "Enter a valid email address."
+    if (!form.password) errors.password = "Enter your password."
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (busy || !validate()) return
+
+    setSubmitting(true)
+    try {
+      const user = await login(form.email.trim(), form.password)
+      toast.success(`Welcome back, ${user.full_name.split(" ")[0]}.`, {
+        title: "Logged in",
+      })
+      // Return to whatever page sent them here, or the main page.
+      navigate(location.state?.from || "/main", { replace: true })
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not log you in. Please try again."), {
+        title: "Login failed",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSocial = (provider) => () => {
+    if (busy) return
+    setLeavingFor(provider)
+    startSocialLogin(provider)
+  }
+
+  const inputWrapper = (hasError) =>
+    `mt-2 flex items-center gap-2.5 rounded-lg border bg-[#ffffff] px-3.5 py-2.5 ${
+      hasError ? "border-[#c0392b]" : "border-[#e4e1d9] focus-within:border-[#0c6b4e]"
+    }`
+
   return (
     <div className="grid min-h-screen w-full bg-[#f5f4f0c1] lg:grid-cols-2">
 
@@ -65,27 +135,26 @@ const LoginPage = () => {
 
         {/* ---------------- Right / form panel ---------------- */}
         <div className="flex items-center justify-center bg-[#ffffff] p-8 sm:p-12 lg:p-16">
-          <div className="w-full max-w-md">
+          <form onSubmit={handleSubmit} noValidate className="w-full max-w-md">
             <h2 className="text-2xl font-semibold tracking-tight text-[#131a16]">Welcome back</h2>
             <p className="mt-2 text-sm text-[#131a16] opacity-60">
               Log in to review your offer letter analysis.
             </p>
 
-            {/* social logins */}
-            <div className="mt-7 space-y-3">
+            {/* social login */}
+            <div className="mt-7">
               <button
                 type="button"
-                className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-4 py-2.5 text-sm font-medium text-[#131a16] transition-colors hover:bg-[#f5f4f0c1]"
+                onClick={handleSocial("google")}
+                disabled={busy || providers.google === false}
+                className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-4 py-2.5 text-sm font-medium text-[#131a16] transition-colors hover:bg-[#f5f4f0c1] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <GoogleIcon/>
+                {leavingFor === "google" ? (
+                  <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                ) : (
+                  <GoogleIcon/>
+                )}
                 Continue with Google
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-4 py-2.5 text-sm font-medium text-[#131a16] transition-colors hover:bg-[#f5f4f0c1]"
-              >
-                <LinkedinIcon/>
-                Continue with LinkedIn
               </button>
             </div>
 
@@ -96,20 +165,32 @@ const LoginPage = () => {
               <span className="h-px flex-1 bg-[#e4e1d9]" />
             </div>
 
+            {/* Whole-form problems (wrong credentials, server down) surface as a
+                toast; only field-scoped errors stay inline next to their input. */}
+
             {/* email */}
             <div>
               <label htmlFor="email" className="block text-xs font-medium text-[#131a16] opacity-70">
                 Email address
               </label>
-              <div className="mt-2 flex items-center gap-2.5 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-3.5 py-2.5 focus-within:border-[#0c6b4e]">
+              <div className={inputWrapper(fieldErrors.email)}>
                 <Mail className="h-4 w-4 shrink-0 text-[#131a16] opacity-40" />
                 <input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={updateField("email")}
+                  disabled={busy}
+                  aria-invalid={Boolean(fieldErrors.email)}
                   placeholder="you@company.com"
                   className="w-full bg-transparent text-sm text-[#131a16] outline-none placeholder:text-[#131a16] placeholder:opacity-35"
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="mt-1.5 text-xs text-[#c0392b]">{fieldErrors.email}</p>
+              )}
             </div>
 
             {/* password */}
@@ -118,28 +199,49 @@ const LoginPage = () => {
                 <label htmlFor="password" className="block text-xs font-medium text-[#131a16] opacity-70">
                   Password
                 </label>
-                <a href="#" className="text-xs font-medium text-[#0c6b4e] hover:underline">
+                <Link
+                  to="/forgotPassword"
+                  className="text-xs font-medium text-[#0c6b4e] hover:underline"
+                >
                   Forgot password?
-                </a>
+                </Link>
               </div>
-              <div className="mt-2 flex items-center gap-2.5 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-3.5 py-2.5 focus-within:border-[#0c6b4e]">
+              <div className={inputWrapper(fieldErrors.password)}>
                 <Lock className="h-4 w-4 shrink-0 text-[#131a16] opacity-40" />
                 <input
                   id="password"
-                  type="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={form.password}
+                  onChange={updateField("password")}
+                  disabled={busy}
+                  aria-invalid={Boolean(fieldErrors.password)}
                   placeholder="Enter your password"
                   className="w-full bg-transparent text-sm text-[#131a16] outline-none placeholder:text-[#131a16] placeholder:opacity-35"
                 />
-                <Eye className="h-4 w-4 shrink-0 cursor-pointer text-[#131a16] opacity-40" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="shrink-0 text-[#131a16] opacity-40 transition-opacity hover:opacity-70"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
+              {fieldErrors.password && (
+                <p className="mt-1.5 text-xs text-[#c0392b]">{fieldErrors.password}</p>
+              )}
             </div>
-            
+
             {/* submit */}
             <button
-              type="button"
-              className="mt-6 w-full rounded-lg bg-[#0c6b4e] px-4 py-3 text-sm font-semibold text-[#ffffff] transition-opacity hover:opacity-90"
+              type="submit"
+              disabled={busy}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c6b4e] px-4 py-3 text-sm font-semibold text-[#ffffff] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Log in to my account
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting ? "Logging in…" : "Log in to my account"}
             </button>
 
             <p className="mt-6 text-center text-sm text-[#131a16] opacity-70">
@@ -154,7 +256,7 @@ const LoginPage = () => {
               <a href="#" className="underline">Terms of Service</a> and{" "}
               <a href="#" className="underline">Privacy Policy</a>.
             </p>
-          </div>
+          </form>
         </div>
     </div>
   )

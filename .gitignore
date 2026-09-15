@@ -10,3 +10,6 @@ dist/
 # Local env overrides
 *.local
 .appmodconfig
+
+# Secrets — Backend/.env holds the Mongo URI, JWT secret and OAuth credentials
+Backend/.env
