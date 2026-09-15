@@ -9,3 +9,4 @@ dist/
 
 # Local env overrides
 *.local
+.appmodconfig
