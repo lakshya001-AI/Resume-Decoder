@@ -312,8 +312,8 @@ const CreateAccountPage = () => {
             </span>
             <span className="text-xs leading-relaxed text-[#131a16] opacity-70">
               I agree to the{" "}
-              <a href="#" className="font-medium text-[#0c6b4e] hover:underline">Terms of Service</a> and{" "}
-              <a href="#" className="font-medium text-[#0c6b4e] hover:underline">Privacy Policy</a>
+              <Link to="/terms" className="font-medium text-[#0c6b4e] hover:underline">Terms of Service</Link> and{" "}
+              <Link to="/privacy-policy" className="font-medium text-[#0c6b4e] hover:underline">Privacy Policy</Link>
             </span>
           </label>
           {fieldErrors.terms && (

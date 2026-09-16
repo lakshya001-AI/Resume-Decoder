@@ -67,7 +67,7 @@ export const Toast = ({ toast, onDismiss }) => {
 export const ToastViewport = ({ toasts, onDismiss }) => (
   // pointer-events-none so the empty column never blocks clicks on the page
   // underneath; each toast re-enables them for itself.
-  <div className="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-2.5 sm:left-auto sm:w-[360px]">
+  <div className="pointer-events-none fixed top-4 right-4 left-4 z-50 flex flex-col gap-2.5 sm:left-auto sm:w-[360px] print:hidden">
     {toasts.map((toast) => (
       <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
     ))}

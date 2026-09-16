@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 
 from MongoDB.configuration import ensure_indexes, ping
+from routes.analysis_routes import router as analysis_router
 from routes.auth_routes import router as auth_router
 from settings import get
 
@@ -82,5 +83,6 @@ async def health():
 
 
 router.include_router(auth_router)
+router.include_router(analysis_router)
 
 app.include_router(router)

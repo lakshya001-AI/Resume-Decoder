@@ -3,6 +3,9 @@ import LoginPage from "./Component/loginPage"
 import CreateAccountPage from "./Component/createAccountPage"
 import MainPage from "./Component/mainPage"
 import UploadPage from "./Component/uploadPage"
+import ReportPage from "./Component/reportPage"
+import TermsPage from "./Component/termsPage"
+import PrivacyPolicyPage from "./Component/privacyPolicyPage"
 import AuthCallback from "./Component/authCallback"
 import ForgotPasswordPage from "./Component/forgotPasswordPage"
 import ResetPasswordPage from "./Component/resetPasswordPage"
@@ -35,7 +38,14 @@ const App = () => {
         <Route element={<ProtectedRoute/>}>
           <Route path="/main" element={<MainPage/>}/>
           <Route path="/upload" element={<UploadPage/>}/>
+          <Route path="/report/:analysisId" element={<ReportPage/>}/>
         </Route>
+
+        {/* Readable signed in or out: the signup form links to the terms, and a
+            logged-in user still needs to be able to reach them. */}
+        <Route path="/terms" element={<TermsPage/>}/>
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage/>}/>
+        <Route path="/sample-report" element={<ReportPage sample/>}/>
 
         {/* Where the social provider sends the browser back to. Ungated: it is what
             turns the returned token into a session. */}

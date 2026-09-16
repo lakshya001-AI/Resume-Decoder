@@ -1,7 +1,9 @@
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import {
   FileUp,
   FileX2,
+  Loader2,
   Lock,
   ScanLine,
   ShieldCheck,
@@ -9,10 +11,22 @@ import {
   X,
 } from "lucide-react"
 import { useToast } from "../context/useToast"
+import { analyzeOfferLetter, describeFailure } from "../lib/analysis"
 import AppHeader from "./appHeader"
 
 const MAX_SIZE_MB = 10
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+
+// The analysis takes roughly half a minute, which is long enough that a bare
+// spinner reads as "stuck". These say what is actually happening, on the rough
+// timings a real run takes, so the wait feels accounted for.
+const STAGES = [
+  { after: 0, label: "Uploading your offer letter…" },
+  { after: 2_000, label: "Reading every page…" },
+  { after: 6_000, label: "Checking all 38 clauses…" },
+  { after: 20_000, label: "Verifying quotes against your document…" },
+  { after: 34_000, label: "Almost there — writing your report…" },
+]
 
 const ASSURANCES = [
   { icon: FileX2, label: "PDF only" },
@@ -38,10 +52,27 @@ const rejectionReason = (file) => {
 
 const UploadPage = () => {
   const toast = useToast()
+  const navigate = useNavigate()
   const inputRef = useRef(null)
+  // Lets an in-flight analysis be cancelled, on unmount or on request.
+  const requestRef = useRef(null)
 
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [stage, setStage] = useState(STAGES[0].label)
+
+  // Walk the stage messages on their timings while a request is in flight.
+  useEffect(() => {
+    if (!analyzing) return
+    const timers = STAGES.filter(({ after }) => after > 0).map(({ after, label }) =>
+      setTimeout(() => setStage(label), after),
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [analyzing])
+
+  // A navigation mid-analysis must not leave the request running.
+  useEffect(() => () => requestRef.current?.abort(), [])
 
   const acceptFile = (candidate) => {
     if (!candidate) return
@@ -57,6 +88,7 @@ const UploadPage = () => {
   const handleDrop = (event) => {
     event.preventDefault()
     setDragging(false)
+    if (analyzing) return
     acceptFile(event.dataTransfer.files?.[0])
   }
 
@@ -66,12 +98,40 @@ const UploadPage = () => {
     if (inputRef.current) inputRef.current.value = ""
   }
 
-  const handleAnalyze = () => {
-    if (!file) return
-    // No analysis endpoint exists yet — say so rather than pretending to work.
-    toast.info("Offer letter analysis isn't switched on yet. Your file hasn't left this page.", {
-      title: "Not available yet",
-    })
+  const handleAnalyze = useCallback(async () => {
+    if (!file || analyzing) return
+
+    const controller = new AbortController()
+    requestRef.current = controller
+    setStage(STAGES[0].label)
+    setAnalyzing(true)
+
+    try {
+      const report = await analyzeOfferLetter(file, { signal: controller.signal })
+
+      // Hand the finished report to the report page in router state so it
+      // renders immediately instead of fetching back what we already have.
+      navigate(`/report/${report.analysisId}`, { state: { report } })
+    } catch (error) {
+      const failure = describeFailure(error)
+      // describeFailure returns null for a cancelled request — the user already
+      // knows they cancelled it, and a toast about it would be noise.
+      if (failure) {
+        toast.error(failure.message, { title: failure.title, duration: 9000 })
+        // The detail is for the user; the error object is for whoever is
+        // debugging this with the console open.
+        console.error("[analysis] upload failed", error)
+      }
+      setAnalyzing(false)
+    } finally {
+      requestRef.current = null
+    }
+  }, [file, analyzing, navigate, toast])
+
+  const handleCancel = () => {
+    requestRef.current?.abort()
+    setAnalyzing(false)
+    toast.info("Analysis cancelled. Your file hasn't been stored.")
   }
 
   return (
@@ -116,7 +176,30 @@ const UploadPage = () => {
             id="offer-letter"
           />
 
-          {file ? (
+          {analyzing ? (
+            /* working state — the stage message is the whole point of it */
+            <div className="flex flex-col items-center text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dcefe4]">
+                <Loader2 className="h-6 w-6 animate-spin text-[#0c6b4e]" strokeWidth={2.2} />
+              </span>
+
+              <p className="mt-4 max-w-full truncate px-4 text-base font-semibold text-[#131a16]">
+                {stage}
+              </p>
+              <p className="mt-1 text-sm text-[#131a16] opacity-55">
+                This usually takes about half a minute. Keep this tab open.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-[#e4e1d9] bg-[#ffffff] px-4 py-2 text-sm font-medium text-[#131a16] transition-colors hover:bg-[#f5f4f0c1]"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2.4} />
+                Cancel
+              </button>
+            </div>
+          ) : file ? (
             /* chosen state */
             <div className="flex flex-col items-center text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dcefe4]">
@@ -186,10 +269,11 @@ const UploadPage = () => {
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={!file}
-          className="mt-4 w-full rounded-xl bg-[#0c6b4e] px-4 py-3.5 text-sm font-semibold text-[#ffffff] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!file || analyzing}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0c6b4e] px-4 py-3.5 text-sm font-semibold text-[#ffffff] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Analyze Offer
+          {analyzing && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.4} />}
+          {analyzing ? "Analyzing…" : "Analyze Offer"}
         </button>
 
         <p className="mt-3 text-center text-xs text-[#131a16] opacity-45">
@@ -204,9 +288,13 @@ const UploadPage = () => {
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
             Privacy first — your document is only used to generate your report. Not legal advice.
           </p>
-          <p className="text-xs text-[#131a16] opacity-45">
-            TrueOffer.AI • Made for Indian job seekers
-          </p>
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <li>
+              <Link to="/terms" className="text-xs text-[#131a16] opacity-45 transition-opacity hover:opacity-80">
+                Terms
+              </Link>
+            </li>
+          </ul>
         </div>
       </footer>
     </div>
