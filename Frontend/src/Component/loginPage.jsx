@@ -253,8 +253,8 @@ const LoginPage = () => {
 
             <p className="mt-8 text-center text-[11px] leading-relaxed text-[#131a16] opacity-45">
               By continuing, you agree to TrueOffer.AI&apos;s{" "}
-              <a href="#" className="underline">Terms of Service</a> and{" "}
-              <a href="#" className="underline">Privacy Policy</a>.
+              <Link to="/terms" className="underline">Terms of Service</Link> and{" "}
+              <Link to="/privacy-policy" className="underline">Privacy Policy</Link>.
             </p>
           </form>
         </div>

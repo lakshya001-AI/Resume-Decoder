@@ -28,6 +28,16 @@ collection = db["trueOffer_ai_collection"]
 # offer-letter documents.
 users_collection = db["users"]
 
+# Offer-letter audits: the structured result of an analysis. The uploaded PDF
+# itself is never written here or anywhere else — it lives in memory for the
+# length of one request and is then gone.
+audits_collection = db["audits"]
+
+# Delete stored audits after this many days. 0 keeps them indefinitely. Changing
+# the value needs the existing `audit_ttl` index dropped by hand; Mongo will not
+# alter expireAfterSeconds on an index that already exists.
+AUDIT_RETENTION_DAYS = int(get("AUDIT_RETENTION_DAYS", "0"))
+
 _indexes_ready = False
 
 
@@ -52,6 +62,17 @@ def ensure_indexes() -> bool:
         users_collection.create_index(
             [("provider_ids.google", ASCENDING)], sparse=True, name="google_sub"
         )
+        # Reports are fetched by the id handed back from the upload, and that id
+        # is the only handle on them, so it has to be unique.
+        audits_collection.create_index(
+            [("analysis_id", ASCENDING)], unique=True, name="uniq_analysis_id"
+        )
+        if AUDIT_RETENTION_DAYS > 0:
+            audits_collection.create_index(
+                [("created_at", ASCENDING)],
+                expireAfterSeconds=AUDIT_RETENTION_DAYS * 86_400,
+                name="audit_ttl",
+            )
     except PyMongoError as exc:
         logger.warning("Could not create indexes (database unreachable?): %s", exc)
         return False

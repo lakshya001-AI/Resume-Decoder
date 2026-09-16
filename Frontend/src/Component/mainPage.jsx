@@ -118,15 +118,17 @@ const SampleReport = () => (
           </div>
         ))}
 
-        <button
-          type="button"
+        {/* Was a button with no handler. It sits on a mock card, so it now goes
+            to the real sample report rather than pretending to sell something. */}
+        <Link
+          to="/sample-report"
           className="flex h-11 items-center justify-between gap-3 rounded-xl bg-[#131a16] px-4 text-left transition-opacity hover:opacity-90"
         >
           <span className="truncate text-xs font-medium text-[#ffffff]">
-            Full audit unlocks evidence
+            See the full report with evidence
           </span>
           <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#ffffff]" strokeWidth={2.4} />
-        </button>
+        </Link>
       </div>
     </div>
 
@@ -178,12 +180,12 @@ const MainPage = () => (
             >
               Check My Offer
             </Link>
-            <a
-              href="#how-it-works"
+            <Link
+              to="/sample-report"
               className="text-sm font-medium text-[#131a16] underline underline-offset-4 transition-opacity hover:opacity-70"
             >
               See sample report
-            </a>
+            </Link>
           </div>
 
           <p className="mt-4 text-sm text-[#131a16] opacity-50">
